@@ -130,7 +130,7 @@ namespace MilPlayment {
         public Vector2 touch_position_to_canvas(Touch touch, Vector2 canvasSize) {
             return new Vector2(
                 (float)((double)touch.x / w * canvasSize.x),
-                (float)(-(double)touch.y / h * canvasSize.y)
+                (float)((double)touch.y / h * canvasSize.y)
             );
         }
 
@@ -174,7 +174,6 @@ namespace MilPlayment {
             var noteScale = note.animationCollection.GetValue((int)MilAnimationType.Size);
             var noteRotation = note.animationCollection.GetValue((int)MilAnimationType.Rotation);
 
-            var notePos = note.GetPosition(t, 0.0, ToScreenX, ToScreenY);
             var transform = note.GetCanvasTransform(lineCenter, lineRotation, lineSize, noteScale, noteRotation);
             var touchPoint = transform.getInverse().getPoint((double)touch.x, (double)touch.y);
 
@@ -188,7 +187,7 @@ namespace MilPlayment {
                 -judge_size[0] / 2 <= touchPoint.x &&
                 touchPoint.x <= judge_size[0] / 2 &&
                 -judge_size[1] / 2 <= touchPoint.y - judge_dy &&
-                touchPoint.y <= judge_size[1] / 2
+                touchPoint.y - judge_dy <= judge_size[1] / 2
             );
         }
 
@@ -250,7 +249,7 @@ namespace MilPlayment {
 
         public void touchstart(double t, int sig, int x, int y, bool is_key = false) {
             if (autoplay) return;
-            x -= w / 2; y = h / 2 - y;
+            x -= w / 2; y -= h / 2;
             var touch = get_touch(sig);
 
             if (touch == null) {
@@ -340,7 +339,7 @@ namespace MilPlayment {
 
         public void touchmove(double t, int sig, int x, int y) {
             if (autoplay) return;
-            x -= w / 2; y = h / 2 - y;
+            x -= w / 2; y -= h / 2;
             var touch = get_touch(sig);
 
             if (touch != null) {
@@ -356,7 +355,7 @@ namespace MilPlayment {
 
         public void touchend(double t, int sig, int x, int y) {
             if (autoplay) return;
-            x -= w / 2; y = h / 2 - y;
+            x -= w / 2; y -= h / 2;
             var touch = get_touch(sig);
 
             if (touch != null) {
