@@ -130,7 +130,7 @@ namespace MilPlayment {
         public Vector2 touch_position_to_canvas(Touch touch, Vector2 canvasSize) {
             return new Vector2(
                 (float)((double)touch.x / w * canvasSize.x),
-                (float)(-(double)touch.y / h * canvasSize.y)
+                (float)((double)touch.y / h * canvasSize.y)
             );
         }
 
@@ -150,8 +150,8 @@ namespace MilPlayment {
             return y / 1080 * h;
         }
 
-        private bool _ishit(double t, MilNote note, Touch touch) {
-            if (touch.is_key) return true;
+        private Vector2 getRelTouchPoint(double t, MilNote note, Touch touch) {
+            if (touch.is_key) return Vector2.zero;
 
             var line = note.master;
             note.animationCollection.Update(t);
@@ -174,15 +174,20 @@ namespace MilPlayment {
             var noteScale = note.animationCollection.GetValue((int)MilAnimationType.Size);
             var noteRotation = note.animationCollection.GetValue((int)MilAnimationType.Rotation);
 
-            var notePos = note.GetPosition(t, 0.0, ToScreenX, ToScreenY);
             var transform = note.GetCanvasTransform(lineCenter, lineRotation, lineSize, noteScale, noteRotation);
             var touchPoint = transform.getInverse().getPoint((double)touch.x, (double)touch.y);
+
+            return touchPoint;
+        }
+
+        private bool _ishit(double t, MilNote note, Touch touch) {
+            var touchPoint = getRelTouchPoint(t, note, touch);
 
             return (
                 -judge_size[0] / 2 <= touchPoint.x &&
                 touchPoint.x <= judge_size[0] / 2 &&
                 -judge_size[1] / 2 <= touchPoint.y - judge_dy &&
-                touchPoint.y <= judge_size[1] / 2
+                touchPoint.y - judge_dy <= judge_size[1] / 2
             );
         }
 
@@ -197,7 +202,10 @@ namespace MilPlayment {
             else if (offset <= JudgeRange.Bad) res = (int)EnumJudgeState.Bad;
             else res = (int)EnumJudgeState.Miss;
 
-            if (note.isAlwaysPerfect && _judge_state_ishit(res)) res = (int)EnumJudgeState.Exact;
+            if (note.isAlwaysPerfect) {
+                if (_judge_state_ishit(res)) res = (int)EnumJudgeState.Exact;
+                else res = (int)EnumJudgeState.Miss;
+            } 
 
             return res;
         }
@@ -206,7 +214,7 @@ namespace MilPlayment {
             return (int)EnumJudgeState.Exact <= state && state <= (int)EnumJudgeState.Good;
         }
 
-        private List<MilNote> _get_notes(double t) {
+        private List<MilNote> _get_notes(double t, Touch touch = null) {
             var res = new List<MilNote>();
             foreach (var line in chart.lines) {
                 foreach (var note in line.notes) {
@@ -225,13 +233,23 @@ namespace MilPlayment {
                     }
                 }
             }
-            res.Sort((a, b) => Math.Abs(a.timeSec - t).CompareTo(Math.Abs(b.timeSec - t)));
+
+            res.Sort((a, b) => {
+                if (Math.Abs(a.timeSec - b.timeSec) > 20 / 1000 || touch == null) {
+                    return a.timeSec.CompareTo(b.timeSec);
+                }
+
+                var rela = getRelTouchPoint(t, a, touch);
+                var relb = getRelTouchPoint(t, b, touch);
+                return rela.magnitude.CompareTo(relb.magnitude);
+            });
+
             return res;
         }
 
         public void touchstart(double t, int sig, int x, int y, bool is_key = false) {
             if (autoplay) return;
-            x -= w / 2; y = h / 2 - y;
+            x -= w / 2; y -= h / 2;
             var touch = get_touch(sig);
 
             if (touch == null) {
@@ -247,7 +265,7 @@ namespace MilPlayment {
                 log($"touch start: {touch.sig}, time: {t}, ({x}, {y}) (was active)");
             }
 
-            foreach (var note in _get_notes(t)) {
+            foreach (var note in _get_notes(t, touch)) {
                 var line = note.master;
 
                 if (_ishit(t, note, touch) && !note.head_judged && note.timeSec - JudgeRange.Bad < t) {
@@ -321,7 +339,7 @@ namespace MilPlayment {
 
         public void touchmove(double t, int sig, int x, int y) {
             if (autoplay) return;
-            x -= w / 2; y = h / 2 - y;
+            x -= w / 2; y -= h / 2;
             var touch = get_touch(sig);
 
             if (touch != null) {
@@ -337,7 +355,7 @@ namespace MilPlayment {
 
         public void touchend(double t, int sig, int x, int y) {
             if (autoplay) return;
-            x -= w / 2; y = h / 2 - y;
+            x -= w / 2; y -= h / 2;
             var touch = get_touch(sig);
 
             if (touch != null) {
